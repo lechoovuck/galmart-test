@@ -1,0 +1,89 @@
+services:
+  db_primary:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME_PRIMARY}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - postgres_data_primary:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - main-network
+
+  db_replica:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME_REPLICA}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - postgres_data_replica:/var/lib/postgresql/data
+    networks:
+      - main-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - main-network
+
+  web:
+    build: .
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db_primary
+      - db_replica
+      - redis
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST_PRIMARY}:${DATABASE_PORT}/${DATABASE_NAME_PRIMARY}
+      - DATABASE_REPLICA_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST_REPLICA}:${DATABASE_PORT}/${DATABASE_NAME_REPLICA}
+    entrypoint: [ "/code/entrypoint-web.sh" ]
+    command: [ "python", "manage.py", "runserver", "0.0.0.0:8000" ]
+    networks:
+      - main-network
+
+  celery:
+    build: .
+    depends_on:
+      - redis
+      - db_primary
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST_PRIMARY}:${DATABASE_PORT}/${DATABASE_NAME_PRIMARY}
+    command: celery -A settings worker --loglevel=info -c ${CELERY_WORKERS_AMOUNT}
+    networks:
+      - main-network
+
+  celery-beat:
+    build: .
+    command: celery -A settings beat --loglevel=info
+    depends_on:
+      - redis
+      - db_primary
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST_PRIMARY}:${DATABASE_PORT}/${DATABASE_NAME_PRIMARY}
+    networks:
+      - main-network
+
+volumes:
+  postgres_data_primary:
+  postgres_data_replica:
+
+networks:
+  main-network:
+    driver: bridge

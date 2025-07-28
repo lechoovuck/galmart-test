@@ -1,0 +1,29 @@
+[
+  {
+    "model": "products.product",
+    "fields": {
+      "name": "Апельсин",
+      "description": "Оранжевый",
+      "price": "1000.00",
+      "quantity": 1
+    }
+  },
+  {
+    "model": "products.product",
+    "fields": {
+      "name": "Яблоко",
+      "description": "Зеленое",
+      "price": "2000.00",
+      "quantity": 2
+    }
+  },
+  {
+    "model": "products.product",
+    "fields": {
+      "name": "Банан",
+      "description": "желтый",
+      "price": "3000.00",
+      "quantity": 3
+    }
+  }
+]
